@@ -363,6 +363,8 @@ int main(int argc, char **argv)
 			printf("Memory paging disabled\n");
 		}
 	}
+	
+	load_ip_list();
 
 	/* start packet sending */
 	kill(getpid(), SIGALRM);

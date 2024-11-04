@@ -359,6 +359,8 @@ struct delaytable_element {
 
 volatile struct delaytable_element delaytable[TABLESIZE];
 
+void load_ip_list();
+
 /* protos */
 void	nop(void);				/* nop */
 int	parse_options(int, char**);		/* option parser */

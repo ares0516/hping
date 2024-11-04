@@ -21,7 +21,70 @@
 #include "hping2.h"
 #include "globals.h"
 
-static void select_next_random_source(void)
+#define MAX_IPS 100000
+
+static struct in_addr ip_src_list[MAX_IPS];
+static int ip_src_count = 0;
+static int current_ip_src_index = 0;
+static char *ip_src_file = "./ip.src"; 
+FILE *ip_src = NULL;
+
+static struct in_addr ip_dst_list[MAX_IPS];
+static int ip_dst_count = 0;
+static int current_ip_dst_index = 0;
+static char *ip_dst_file = "./ip.dst";
+FILE *ip_dst = NULL;
+
+void load_ip_src_list(void)
+{
+	FILE *file = fopen(ip_src_file, "r");
+	if (!file) {
+		perror("fopen");
+		exit(EXIT_FAILURE);
+	}
+
+	char line[INET_ADDRSTRLEN];
+	while (fgets(line, sizeof(line), file) && ip_src_count < MAX_IPS) {
+		line[strcspn(line, "\n")] = '\0'; // 去除换行符
+		if (inet_aton(line, &ip_src_list[ip_src_count]) == 0) {
+			fprintf(stderr, "Invalid IP address: %s\n", line);
+			continue;
+		}
+		ip_src_count++;
+	}
+
+	fclose(file);
+}
+
+void load_ip_dst_list(void)
+{
+	FILE *file = fopen(ip_dst_file, "r");
+	if (!file) {
+		perror("fopen");
+		exit(EXIT_FAILURE);
+	}
+
+	char line[INET_ADDRSTRLEN];
+	while (fgets(line, sizeof(line), file) && ip_dst_count < MAX_IPS) {
+		line[strcspn(line, "\n")] = '\0'; // 去除换行符
+		if (inet_aton(line, &ip_dst_list[ip_dst_count]) == 0) {
+			fprintf(stderr, "Invalid IP address: %s\n", line);
+			continue;
+		}
+		ip_dst_count++;
+	}
+
+	fclose(file);
+}
+
+void load_ip_list(void)
+{
+	load_ip_src_list();
+	load_ip_dst_list();
+}
+
+
+static void select_next_random_source_o(void)
 {
 	unsigned char ra[4];
 
@@ -36,7 +99,50 @@ static void select_next_random_source(void)
 		    ra[0], ra[1], ra[2], ra[3]);
 }
 
-static void select_next_random_dest(void)
+
+/**
+ * @brief Selects the next IP address from the list of source IPs.
+ *
+ * This function updates the `local.sin_addr` to the next IP address in the `ip_list`.
+ * It cycles through the list of IP addresses using a round-robin approach.
+ * If the IP list is empty, it prints an error message to `stderr` and returns.
+ * If debugging is enabled (`opt_debug`), it prints the selected source address to `stdout`.
+ *
+ * @note Ensure that the IP list is loaded before calling this function.
+ */
+static void select_next_list_source(void)
+{
+    if (ip_src_count == 0) {
+        fprintf(stderr, "IP list is empty. Make sure to load the IP list first.\n");
+        return;
+    }
+
+    local.sin_addr = ip_list[current_ip_src_index];
+    current_ip_src_index = (current_ip_src_index + 1) % ip_src_count
+
+    if (opt_debug) {
+        printf("DEBUG: the source address is %s\n", inet_ntoa(local.sin_addr));
+    }
+}
+
+/**
+ * @brief Selects the next random source IP address.
+ *
+ * This function determines the next source IP address to use. If there are no
+ * source IP addresses available (`ip_src_count` is 0), it calls 
+ * `select_next_random_source_o()` to select a random source. Otherwise, it 
+ * calls `select_next_list_source()` to select the next source from a list.
+ */
+static void select_next_random_source(void)
+{
+	if (ip_src_count == 0) {
+		select_next_random_source_o();
+	} else {
+		select_next_list_source();
+	}
+}
+
+static void select_next_random_dest_o(void)
 {
 	unsigned char ra[4];
 	char a[4], b[4], c[4], d[4];
@@ -62,6 +168,55 @@ static void select_next_random_dest(void)
 				ra[0], ra[1], ra[2], ra[3]);
 	}
 }
+
+/**
+ * @brief Selects the next destination IP address from the list.
+ *
+ * This function updates the global variable `local.sin_addr` to the next IP address
+ * in the `ip_list`. It also increments the `current_ip_index` to point to the next
+ * IP address in the list, wrapping around to the beginning if necessary.
+ *
+ * If the IP list is empty (`ip_count` is 0), an error message is printed to `stderr`
+ * and the function returns without making any changes.
+ *
+ * If the `opt_debug` flag is set, the function prints the selected IP address to `stdout`
+ * for debugging purposes.
+ *
+ * @note Ensure that the IP list is loaded before calling this function.
+ */
+static void select_next_list_dest(void)
+{
+    if (ip_dst_count == 0) {
+        fprintf(stderr, "IP list is empty. Make sure to load the IP list first.\n");
+        return;
+    }
+
+    local.sin_addr = ip_list[current_ip_dst_index];
+    current_ip_dst_index = (current_ip_dst_index + 1) % ip_dst_count;
+
+    if (opt_debug) {
+        printf("DEBUG: the source address is %s\n", inet_ntoa(local.sin_addr));
+    }
+}
+
+/**
+ * @brief Selects the next random destination.
+ *
+ * This function determines the next destination to send data to. If the 
+ * destination count (`ip_dst_count`) is zero, it calls 
+ * `select_next_random_dest_o()` to select the next random destination. 
+ * Otherwise, it calls `select_next_list_dest()` to select the next 
+ * destination from a predefined list.
+ */
+static void select_next_random_dest(void)
+{
+	if (ip_dst_count == 0) {
+		select_next_random_dest_o();
+	} else {
+		select_next_list_dest();
+	}
+}
+
 
 /* The signal handler for SIGALRM will send the packets */
 void send_packet (int signal_id)
