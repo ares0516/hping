@@ -32,7 +32,7 @@ enum {	OPT_COUNT, OPT_INTERVAL, OPT_NUMERIC, OPT_QUIET, OPT_INTERFACE,
 	OPT_ICMP_IPLEN, OPT_ICMP_IPID, OPT_ICMP_IPPROTO, OPT_ICMP_CKSUM,
 	OPT_ICMP_TS, OPT_ICMP_ADDR, OPT_TCPEXITCODE, OPT_FAST, OPT_TR_KEEP_TTL,
 	OPT_TCP_TIMESTAMP, OPT_TR_STOP, OPT_TR_NO_RTT, OPT_ICMP_HELP,
-	OPT_RAND_DEST, OPT_RAND_SOURCE, OPT_LSRR, OPT_SSRR, OPT_ROUTE_HELP,
+	OPT_RAND_DEST, OPT_RAND_SOURCE, OPT_LIST_DEST, OPT_LIST_SOURCE, OPT_LSRR, OPT_SSRR, OPT_ROUTE_HELP,
 	OPT_ICMP_IPSRC, OPT_ICMP_IPDST, OPT_ICMP_SRCPORT, OPT_ICMP_DSTPORT,
 	OPT_ICMP_GW, OPT_FORCE_ICMP, OPT_APD_SEND, OPT_SCAN, OPT_FASTER,
 	OPT_BEEP, OPT_FLOOD, OPT_CLOCK_SKEW, OPT_CS_WINDOW, OPT_CS_WINDOW_SHIFT,
@@ -113,6 +113,8 @@ static struct ago_optlist hping_optlist[] = {
 	{ '\0',	"tr-no-rtt",	OPT_TR_NO_RTT,		AGO_NOARG },
 	{ '\0', "rand-dest",	OPT_RAND_DEST,		AGO_NOARG },
 	{ '\0', "rand-source",	OPT_RAND_SOURCE,	AGO_NOARG },
+	{ '\0', "list-dest",	OPT_LIST_DEST,		AGO_NEEDARG|AGO_EXCEPT0 },
+	{ '\0', "list-source",	OPT_LIST_SOURCE,	AGO_NEEDARG|AGO_EXCEPT0 },
 	{ '\0', "lsrr",		OPT_LSRR, 		AGO_NEEDARG|AGO_EXCEPT0 },
 	{ '\0', "ssrr",		OPT_SSRR, 		AGO_NEEDARG|AGO_EXCEPT0 },
 	{ '\0', "route-help",   OPT_ROUTE_HELP,		AGO_NOARG },
@@ -529,6 +531,14 @@ int parse_options(int argc, char **argv)
 		case OPT_RAND_SOURCE:
 			opt_rand_source = TRUE;
 			break;
+		case OPT_LIST_DEST:
+			opt_list_dest = TRUE;
+			strlcpy(ip_dst_filename, ago_optarg, 1024);
+			break;
+		case OPT_LIST_SOURCE:
+			opt_list_source = TRUE;
+			strlcpy(ip_src_filename, ago_optarg, 1024);
+			break;
 		case OPT_LSRR:
 			opt_lsrr = TRUE;
 			parse_route(lsr, &lsr_length, ago_optarg);
@@ -659,6 +669,18 @@ int parse_options(int argc, char **argv)
 	} else if (opt_rand_dest == TRUE && ifname[0] == '\0') {
 		printf("Option error: you need to specify an interface "
 			"when the --rand-dest option is enabled\n");
+		exit(1);
+	}
+
+	if (opt_rand_dest == TRUE && opt_list_dest == TRUE) {
+		printf("Option error: you can't use --rand-dest and "
+			"--list-dest at the same time\n");
+		exit(1);
+	}
+
+	if (opt_rand_source == TRUE && opt_list_source == TRUE) {
+		printf("Option error: you can't use --rand-source and "
+			"--list-source at the same time\n");
 		exit(1);
 	}
 

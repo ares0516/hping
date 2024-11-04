@@ -104,6 +104,8 @@ int
 	opt_tr_no_rtt	= FALSE,
 	opt_rand_dest	= FALSE,
 	opt_rand_source	= FALSE,
+	opt_list_dest	= FALSE,
+	opt_list_source	= FALSE,
 	opt_lsrr        = FALSE,
 	opt_ssrr        = FALSE,
 	opt_cplt_rte    = FALSE,
@@ -142,6 +144,8 @@ char
 	ifname		[1024] = {'\0'},
 	ifstraddr	[1024],
 	spoofaddr	[1024],
+	ip_dst_filename	[1024],
+	ip_src_filename	[1024],
 	icmp_ip_srcip	[1024],
 	icmp_ip_dstip	[1024],
 	icmp_gwip	[1024],
@@ -178,7 +182,7 @@ struct pcap_pkthdr hdr;
 int main(int argc, char **argv)
 {
 	char setflags[1024] = {'\0'};
-	int c, hdr_size;
+	int c, hdr_size, ret;
 
 	/* Check for the scripting mode */
 	if (argc == 1 || (argc > 1 && !strcmp(argv[1], "exec"))) {
@@ -223,6 +227,22 @@ int main(int argc, char **argv)
 	} else {
 		strlcpy(targetstraddr, inet_ntoa(remote.sin_addr),
 			sizeof(targetstraddr));
+	}
+
+	if (opt_list_dest) {
+		ret = load_ip_dst_list();
+		if (ret == -1) {
+			printf("Error loading destination IP list\n");
+			exit(1);
+		}
+	}
+
+	if (opt_list_source) {
+		ret = load_ip_src_list();
+		if (ret == -1) {
+			printf("Error loading source IP list\n");
+			exit(1);
+		}
 	}
 
 	/* get interface's name and address */
